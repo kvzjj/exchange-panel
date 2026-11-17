@@ -1,4 +1,4 @@
-"""推送：事件 → ntfy（gn.kvzjj.top:9445）→ 手机。
+"""推送：事件 → ntfy（同机 127.0.0.1:2586，Caddy 在 :9445 对外）→ 手机。
 
 设计要点：
 - 只依赖标准库，POST 一个 JSON 就行
@@ -74,7 +74,7 @@ class Pusher:
             env_path = os.path.join(base_dir, env_path)
         env = load_env(env_path)
 
-        self.url = (push.get("url") or "https://gn.kvzjj.top:9445").rstrip("/")
+        self.url = (push.get("url") or "http://127.0.0.1:2586").rstrip("/")
         self.topic = env.get("NTFY_TOPIC", "leadmon-alerts")
         self.user = env.get("NTFY_PUB_USER", "")
         self.password = env.get("NTFY_PUB_PASS", "")

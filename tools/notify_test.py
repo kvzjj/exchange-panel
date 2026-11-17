@@ -37,7 +37,7 @@ def main() -> int:
     else:
         import time
         title = "leadmon 测试推送"
-        body = "链路：haiwai -> gn.kvzjj.top:9445 (ntfy) -> 手机\n时间 " + \
+        body = "链路：leadmon -> haiwai 本机 ntfy -> 手机\n时间 " + \
                time.strftime("%Y-%m-%d %H:%M:%S")
         tags = "white_check_mark"
 
