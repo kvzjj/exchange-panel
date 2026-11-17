@@ -2,6 +2,11 @@
 
 链路：`haiwai(leadmon) → gn.kvzjj.top:9445 (ntfy) → 手机 ntfy App`
 
+> **已完成（2026-11-17，通过 adb 装在这台一加 Ace 6T 上）**：
+> `io.heckel.ntfy 1.25.2`（fdroid 版，不依赖 GMS）、已订阅 `leadmon-alerts`、
+> 已加服务器账号 `zjj`、已加入电池白名单、通知渠道重要性已调到 HIGH（会弹横幅）。
+> 下面保留手动步骤，重装/换机时照做。
+
 ## 1. 装 App
 
 | 版本 | 地址 | 适用 |
@@ -21,6 +26,17 @@ App → `Settings → Manage users → Add`：
 - 勾选 **Use instant delivery**（fdroid 版必须勾，否则靠轮询会很慢）
 
 保存后订阅主题 **`leadmon-alerts`**。
+
+## 2.5 一次性命令（USB 连着电脑时）
+
+```bash
+adb install -r -g ntfy-1.25.2-fdroid-release.apk
+adb shell cmd deviceidle whitelist +io.heckel.ntfy          # 电池白名单
+adb shell am start -a android.intent.action.VIEW \
+  -d "ntfy://gn.kvzjj.top:9445/leadmon-alerts"              # 深链建订阅
+# 然后在 App 里：⋮ → 设置 → 管理用户 → 添加新用户（服务器/账号/密码）
+# 系统设置 → 通知 → ntfy → 把「默认优先级」渠道改成 高（横幅+声音+振动）
+```
 
 ## 3. 关掉省电限制（关键）
 

@@ -87,6 +87,7 @@ CREATE TABLE IF NOT EXISTS push_log (
     title      TEXT,
     body       TEXT,
     tags       TEXT,
+    priority   TEXT,
     created_ts INTEGER,
     status     TEXT DEFAULT 'pending',
     attempts   INTEGER DEFAULT 0,
@@ -113,7 +114,19 @@ class Store:
         self.db.row_factory = sqlite3.Row
         with self._lock:
             self.db.executescript(SCHEMA)
+            self._migrate()
             self.db.commit()
+
+    def _migrate(self) -> None:
+        """SQLite 加列只能 ALTER，CREATE TABLE IF NOT EXISTS 不会补列。"""
+        migrations = {
+            "push_log": {"priority": "TEXT"},
+        }
+        for table, columns in migrations.items():
+            existing = {r["name"] for r in self.db.execute(f"PRAGMA table_info({table})")}
+            for name, decl in columns.items():
+                if existing and name not in existing:
+                    self.db.execute(f"ALTER TABLE {table} ADD COLUMN {name} {decl}")
 
     def snapshot(self, kind: str, ts: int, payload) -> None:
         with self._lock:

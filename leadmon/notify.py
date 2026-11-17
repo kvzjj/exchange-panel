@@ -18,14 +18,17 @@ import urllib.request
 log = logging.getLogger("leadmon.notify")
 
 ACTION_STYLE = {
-    "OPEN": ("🟢", "开仓", "chart_with_upwards_trend"),
-    "ADD": ("🔵", "加仓", "heavy_plus_sign"),
-    "REDUCE": ("🟡", "部分平仓", "scissors"),
-    "CLOSE": ("⚪", "全平", "checkered_flag"),
-    "FLIP": ("🔄", "反手", "arrows_counterclockwise"),
+    "OPEN": ("🟢", "开仓"),
+    "ADD": ("🔵", "加仓"),
+    "REDUCE": ("🟡", "部分平仓"),
+    "CLOSE": ("⚪", "全平"),
+    "FLIP": ("🔄", "反手"),
 }
 
-CLOSED_STYLE = ("✅", "平仓完成", "moneybag")
+CLOSED_STYLE = ("✅", "平仓完成")
+
+# 交易事件都是低频高价值信息：用 high 让通知**弹出**（横幅），而不是只躺在通知栏
+EVENT_PRIORITY = "high"
 
 
 def load_env(path: str) -> dict:
@@ -130,7 +133,7 @@ class Pusher:
 
 def _event_message(item: dict) -> tuple[str, str, str]:
     """(title, body, tags)"""
-    emoji, label, tag = ACTION_STYLE.get(item["action"], ("•", item["action"], ""))
+    emoji, label = ACTION_STYLE.get(item["action"], ("•", item["action"]))
     sym = item["symbol"]
     side = "多" if item["side"] == "LONG" else "空"
     title = f"{emoji} {label} {sym} {side}"
@@ -149,11 +152,11 @@ def _event_message(item: dict) -> tuple[str, str, str]:
         lines.append(f"持仓累计 {_fmt_num(item['remaining'], 4)}，均价 {_fmt_num(item['avg_cost'], 4)}")
     if item.get("ts"):
         lines.append("时间 " + time.strftime("%m-%d %H:%M:%S", time.localtime(item["ts"] / 1000)))
-    return title, "\n".join(lines), tag
+    return title, "\n".join(lines), ""
 
 
 def _cycle_message(cycle: dict) -> tuple[str, str, str]:
-    emoji, label, tag = CLOSED_STYLE
+    emoji, label = CLOSED_STYLE
     side = "多" if cycle["side"] == "LONG" else "空"
     pnl = cycle.get("pnl") or 0.0
     title = f"{emoji} {label} {cycle['symbol']} {side} {_money(pnl)} USDT"
@@ -164,7 +167,7 @@ def _cycle_message(cycle: dict) -> tuple[str, str, str]:
         f"已实现 {_money(pnl)} USDT" + (f"，ROI {roi * 100:.1f}%" if roi is not None else ""),
         f"持仓 {_fmt_num((cycle.get('duration_min') or 0) / 60, 1)} 小时",
     ]
-    return title, "\n".join(lines), tag
+    return title, "\n".join(lines), ""
 
 
 def build_messages(items: list[dict]) -> list[dict]:
@@ -177,7 +180,8 @@ def build_messages(items: list[dict]) -> list[dict]:
             else:
                 title, body, tags = _event_message(item["data"])
             out.append({"uid": item["uid"], "uids": item.get("uids") or [item["uid"]],
-                        "kind": item["kind"], "title": title, "body": body, "tags": tags})
+                        "kind": item["kind"], "title": title, "body": body, "tags": tags,
+                        "priority": EVENT_PRIORITY})
         except Exception:  # noqa: BLE001
             log.exception("消息组装失败: %s", item.get("uid"))
     return out

@@ -279,7 +279,8 @@ def push_dispatch(cfg: dict, store: Store, pusher: "notify.Pusher",
     try:
         for row in store.push_pending(limit=int((cfg.get("push") or {}).get("batch", 8)),
                                       max_attempts=pusher.max_attempts):
-            ok, err = pusher.send(row["title"], row["body"], row.get("tags") or "")
+            ok, err = pusher.send(row["title"], row["body"],
+                                  row.get("tags") or "", row.get("priority") or "")
             store.push_mark(row["uid"], ok, err, pusher.max_attempts)
             if ok:
                 stats["sent"] += 1
