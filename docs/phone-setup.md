@@ -1,6 +1,6 @@
 # 手机接收推送（一加 Ace 6T / ColorOS，无 GMS 场景）
 
-链路：`haiwai(leadmon) → gn.kvzjj.top:9445 (ntfy) → 手机 ntfy App`
+链路：`haiwai(leadmon) → haiwai 本机 ntfy → 手机 ntfy App`（不经过任何中转机器）
 
 > **已完成（2026-11-17，通过 adb 装在这台一加 Ace 6T 上）**：
 > `io.heckel.ntfy 1.25.2`（fdroid 版，不依赖 GMS）、已订阅 `leadmon-alerts`、
@@ -11,8 +11,8 @@
 
 | 版本 | 地址 | 适用 |
 |---|---|---|
-| **fdroid**（推荐） | `https://gn.kvzjj.top:9447/ntfy-1.25.2-fdroid-release.apk` | 没有 Google 服务的国行机，App 自己保持长连接 |
-| play | `https://gn.kvzjj.top:9447/ntfy-1.25.2-play-release.apk` | 装了 GMS 的机器，走 FCM 最省电 |
+| **fdroid**（推荐） | `https://haiwai.kvzjj.top:9447/ntfy-1.25.2-fdroid-release.apk` | 没有 Google 服务的国行机，App 自己保持长连接 |
+| play | `https://haiwai.kvzjj.top:9447/ntfy-1.25.2-play-release.apk` | 装了 GMS 的机器，走 FCM 最省电 |
 
 > 来自 GitHub 官方 release，已镜像到 gn 方便国内下载。安装时允许"未知来源"。
 
@@ -20,8 +20,8 @@
 
 App → `Settings → Manage users → Add`：
 
-- **Server URL**: `https://gn.kvzjj.top:9445`
-- **Username**: `zjj`
+- **Server URL**: `https://haiwai.kvzjj.top:9445`
+- **Username**: `zjj`（密码见 `.secrets/ntfy.env` 的 `NTFY_SUB_PASS`）
 - **Password**: 见 `.secrets/ntfy.env` 的 `NTFY_SUB_PASS`
 - 勾选 **Use instant delivery**（fdroid 版必须勾，否则靠轮询会很慢）
 
@@ -55,4 +55,4 @@ ssh haiwai 'sudo -u leadmon python3 /opt/leadmon/tools/notify_test.py'
 
 ## 5. 点通知跳转面板
 
-通知里的 `Open panel` 按钮 → `https://gn.kvzjj.top:9446`（Basic Auth，浏览器记住一次即可）。
+通知里的 `Open panel` 按钮 → `https://haiwai.kvzjj.top`（Basic Auth，浏览器记住一次即可）。

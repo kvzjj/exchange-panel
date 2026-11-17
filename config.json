@@ -19,8 +19,8 @@
   "push": {
     "enabled": true,
     "env_file": ".secrets/ntfy.env",
-    "url": "https://gn.kvzjj.top:9445",
-    "panel_url": "https://gn.kvzjj.top:9446",
+    "url": "http://127.0.0.1:2586",
+    "panel_url": "https://haiwai.kvzjj.top",
     "startup_grace_sec": 300,
     "max_attempts": 5,
     "batch": 8,
