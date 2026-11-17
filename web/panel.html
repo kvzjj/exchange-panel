@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>带单持仓监控</title>
+<style>
+  :root{
+    --bg:#0b0e14; --panel:#141926; --line:#1f2637; --txt:#e6edf3;
+    --dim:#8b98ad; --long:#2ea043; --short:#f85149; --warn:#d29922; --accent:#388bfd;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--txt);
+       font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans SC",sans-serif;
+       padding:18px;max-width:1240px;margin:0 auto}
+  h1{font-size:18px;margin:0;display:flex;align-items:center;gap:10px}
+  a{color:var(--accent);text-decoration:none}
+  a:hover{text-decoration:underline}
+  header{display:flex;justify-content:space-between;align-items:flex-end;
+         flex-wrap:wrap;gap:10px;margin-bottom:16px;border-bottom:1px solid var(--line);padding-bottom:12px}
+  .meta{font-size:12px;color:var(--dim);text-align:right}
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--long);display:inline-block}
+  .dot.stale{background:var(--warn)} .dot.dead{background:var(--short)}
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:14px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:10px 12px}
+  .card .k{font-size:11px;color:var(--dim);letter-spacing:.04em}
+  .card .v{font-size:19px;font-weight:600;margin-top:3px;font-variant-numeric:tabular-nums}
+  .card .s{font-size:11px;color:var(--dim);margin-top:2px}
+  table{width:100%;border-collapse:collapse;background:var(--panel);
+        border:1px solid var(--line);border-radius:8px;overflow:hidden;font-variant-numeric:tabular-nums}
+  th,td{padding:7px 10px;text-align:right;white-space:nowrap;border-bottom:1px solid var(--line)}
+  th{font-size:11px;color:var(--dim);font-weight:500;background:#10151f}
+  th:first-child,td:first-child{text-align:left}
+  tbody tr:last-child td{border-bottom:none}
+  tbody tr:hover{background:#182031}
+  .sym{font-weight:600}
+  .tag{display:inline-block;padding:1px 7px;border-radius:4px;font-size:11px;font-weight:600}
+  .tag.LONG{background:rgba(46,160,67,.16);color:var(--long)}
+  .tag.SHORT{background:rgba(248,81,73,.16);color:var(--short)}
+  .tag.BUY{background:rgba(46,160,67,.16);color:var(--long)}
+  .tag.SELL{background:rgba(248,81,73,.16);color:var(--short)}
+  .up{color:var(--long)} .down{color:var(--short)} .flat{color:var(--dim)}
+  section{margin-top:20px}
+  section h2{font-size:13px;color:var(--dim);font-weight:500;margin:0 0 8px;letter-spacing:.04em}
+  section h2 small{font-weight:400;color:#5b6678;margin-left:6px}
+  .empty{color:var(--dim);font-size:13px;padding:14px;text-align:center;
+         background:var(--panel);border:1px dashed var(--line);border-radius:8px}
+  .err{background:rgba(248,81,73,.08);border:1px solid rgba(248,81,73,.35);color:#ffb3ae;
+       border-radius:8px;padding:8px 12px;font-size:12px;margin-bottom:10px;white-space:pre-wrap}
+  .banner{background:rgba(56,139,253,.08);border:1px solid rgba(56,139,253,.35);color:#9ecbff;
+          border-radius:8px;padding:9px 12px;margin-bottom:14px;font-size:12.5px}
+  .warn{background:rgba(210,153,34,.1);border:1px solid rgba(210,153,34,.4);color:#e3b341;
+        border-radius:8px;padding:9px 12px;margin-bottom:14px;font-size:12.5px}
+  .winstats{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px}
+  .winbox{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:10px 12px}
+  .winbox h3{margin:0 0 6px;font-size:12px;color:var(--accent);font-weight:600}
+  .winbox .row{display:flex;justify-content:space-between;font-size:12px;color:var(--dim);padding:2px 0}
+  .winbox .row b{color:var(--txt);font-weight:600;font-variant-numeric:tabular-nums}
+  footer{margin-top:24px;color:var(--dim);font-size:11px;text-align:center;line-height:1.8}
+  @media(max-width:820px){th.hide,td.hide{display:none}}
+</style>
+</head>
+<body>
+<header>
+  <h1><span class="dot" id="dot"></span><span id="title">加载中…</span></h1>
+  <div class="meta">
+    <div>更新 <span id="updated">--</span> · <span id="age">--</span></div>
+    <div><a id="trader" href="#" target="_blank" rel="noreferrer">币安带单主页</a></div>
+  </div>
+</header>
+
+<div id="banner"></div>
+<div id="errors"></div>
+<div class="cards" id="cards"></div>
+
+<section>
+  <h2>当前持仓 <small>由逐笔成交反推（官方持仓接口匿名不可用）</small></h2>
+  <div id="positions"></div>
+</section>
+
+<section>
+  <h2>当前持仓周期明细 <small>开仓 / 加仓 / 部分平仓 / 全平 判定</small></h2>
+  <div id="cycles"></div>
+</section>
+
+<section>
+  <h2>最近成交明细 <small>即页面的「操作记录」</small></h2>
+  <div id="fills"></div>
+</section>
+
+<section>
+  <h2>绩效 · 官方口径</h2>
+  <div id="official"></div>
+</section>
+
+<section>
+  <h2>绩效 · 本地口径 <small>按已平仓周期加总</small></h2>
+  <div id="stats"></div>
+</section>
+
+<section>
+  <h2>已平仓周期</h2>
+  <div id="history"></div>
+</section>
+
+<section>
+  <h2>币种聚合（全历史）</h2>
+  <div id="bySymbol"></div>
+</section>
+
+<footer>
+  leadmon · 只读面板 · 数据来自币安跟单网页接口（非官方 API，字段可能变）<br>
+  <span id="syncinfo"></span><br><span id="quality"></span>
+</footer>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const num = (v, d = 2) => (v === null || v === undefined || v === "") ? "–"
+  : Number(v).toLocaleString("en-US", {minimumFractionDigits: d, maximumFractionDigits: d});
+const int = (v) => (v === null || v === undefined) ? "–" : Number(v).toLocaleString("en-US");
+const signed = (v, d = 2) => {
+  if (v === null || v === undefined) return '<span class="flat">–</span>';
+  const cls = v > 0 ? "up" : v < 0 ? "down" : "flat";
+  return `<span class="${cls}">${(v > 0 ? "+" : "") + num(v, d)}</span>`;
+};
+const pct = (v, d = 1) => (v === null || v === undefined) ? "–" : num(v, d) + "%";
+const dur = (m) => {
+  if (m === null || m === undefined) return "–";
+  if (m < 60) return Math.round(m) + "m";
+  if (m < 1440) return Math.floor(m / 60) + "h" + String(Math.round(m % 60)).padStart(2, "0") + "m";
+  return Math.floor(m / 1440) + "d" + Math.round((m % 1440) / 60) + "h";
+};
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const sideTag = (s) => `<span class="tag ${esc(s)}">${s === "LONG" ? "多" : s === "SHORT" ? "空" : s === "BUY" ? "买" : s === "SELL" ? "卖" : "?"}</span>`;
+
+function renderCards(s) {
+  const t = s.totals || {};
+  const st = (s.stats || {})["7D"] || {};
+  const items = [
+    ["当前持仓", int(t.count), t.count ? "反推得出" : "空仓"],
+    ["未实现盈亏", signed(t.upnl, 2), "USDT"],
+    ["多头名义", int(t.long_notional), "USDT"],
+    ["空头名义", int(t.short_notional), "USDT"],
+    ["净敞口", signed(t.net_notional, 0), "USDT"],
+    ["近 7D 已实现", signed(st.pnl, 2), (st.trades || 0) + " 笔"],
+  ];
+  $("cards").innerHTML = items.map(([k, v, sub]) =>
+    `<div class="card"><div class="k">${k}</div><div class="v">${v}</div><div class="s">${esc(sub || "")}</div></div>`
+  ).join("");
+}
+
+function renderPositions(s) {
+  const rows = s.positions || [];
+  if (!rows.length) {
+    $("positions").innerHTML = `<div class="empty">空仓：最后一轮平仓之后没有净买入</div>`;
+    return;
+  }
+  const body = rows.map(p => `
+    <tr>
+      <td class="sym">${esc(p.symbol)}</td>
+      <td>${sideTag(p.side)}</td>
+      <td>${num(p.qty, 4)}</td>
+      <td>${num(p.avg_cost, 6)}</td>
+      <td>${num(p.mark_price, 6)}</td>
+      <td>${int(p.notional)}</td>
+      <td>${signed(p.upnl, 2)}</td>
+      <td>${pct(p.upnl_pct, 2)}</td>
+      <td>${pct(p.closed_ratio, 1)}</td>
+      <td class="hide">${esc(p.status || "–")}</td>
+      <td class="hide">${esc(p.opened_iso || "–")}</td>
+      <td class="hide">${int(p.fills)}</td>
+    </tr>`).join("");
+  $("positions").innerHTML = `<table><thead><tr>
+      <th>币种</th><th>方向</th><th>持仓量</th><th>均价成本</th><th>标记价</th>
+      <th>名义价值</th><th>浮动盈亏</th><th>浮盈%</th><th>已平比例</th>
+      <th class="hide">周期状态</th><th class="hide">首笔成交</th><th class="hide">成交笔数</th>
+    </tr></thead><tbody>${body}</tbody></table>`;
+}
+
+function renderCycles(s) {
+  const rows = (s.positions || []).filter(p => (p.events || []).length);
+  if (!rows.length) {
+    $("cycles").innerHTML = `<div class="empty">没有正在进行的持仓周期</div>`;
+    return;
+  }
+  $("cycles").innerHTML = rows.map(p => {
+    const ev = (p.events || []).map(e => `
+      <tr>
+        <td>${e.ts ? new Date(e.ts).toLocaleString("zh-CN", {hour12: false}) : "–"}</td>
+        <td><span class="tag ${e.action === "REDUCE" || e.action === "CLOSE" ? "SELL" : "BUY"}">${esc(e.label)}</span></td>
+        <td>${e.buy ? num(e.buy, 4) : "–"}</td>
+        <td>${e.sell ? num(e.sell, 4) : "–"}</td>
+        <td>${num(e.price, 6)}</td>
+        <td>${num(e.remaining, 4)}</td>
+        <td class="hide">${int(e.fills)}</td>
+        <td class="hide">${signed(e.realized_api, 2)}</td>
+      </tr>`).join("");
+    return `<div class="winbox" style="margin-bottom:10px">
+      <h3>${esc(p.symbol)} ${p.side === "LONG" ? "多" : "空"} · ${esc(p.status || "")}
+        <span class="flat">｜峰值 ${num(p.peak_qty, 4)} ｜已平 ${num(p.closed_qty, 4)} (${pct(p.closed_ratio, 1)}) ｜剩余 ${num(p.qty, 4)}</span></h3>
+      <div class="row"><span>已实现（模型 / 接口）</span>
+        <b>${signed(p.realized, 2)} / ${signed(p.realized_api, 2)}
+        ${Math.abs(p.pnl_diff || 0) > 1 ? `<span class="flat">(差 ${num(p.pnl_diff, 2)})</span>` : ""}</b></div>
+    </div>
+    <table><thead><tr>
+      <th>时间</th><th>动作</th><th>买入量</th><th>卖出量</th><th>成交价</th>
+      <th>操作后剩余</th><th class="hide">笔数</th><th class="hide">该步已实现</th>
+    </tr></thead><tbody>${ev}</tbody></table>`;
+  }).join("");
+}
+
+function renderFills(s) {
+  const rows = s.recent_fills || [];
+  if (!rows.length) { $("fills").innerHTML = `<div class="empty">暂无成交记录</div>`; return; }
+  const body = rows.map(f => `
+    <tr>
+      <td>${esc(f.time_iso || "–")}</td>
+      <td class="sym">${esc(f.symbol)}</td>
+      <td>${sideTag(f.side)}</td>
+      <td>${sideTag(f.position_side)}</td>
+      <td>${num(f.price, 6)}</td>
+      <td>${num(f.qty, 4)}</td>
+      <td>${int(f.quote_qty)}</td>
+      <td class="hide">${num(f.fee, 4)}</td>
+      <td class="hide">${signed(f.realized, 2)}</td>
+    </tr>`).join("");
+  $("fills").innerHTML = `<table><thead><tr>
+      <th>时间</th><th>币种</th><th>买/卖</th><th>方向</th><th>成交价</th>
+      <th>数量</th><th>成交额</th><th class="hide">手续费</th><th class="hide">已实现</th>
+    </tr></thead><tbody>${body}</tbody></table>`;
+}
+
+function renderOfficial(s) {
+  const off = s.official || {};
+  const LABEL = {"7D": "近 7 天", "30D": "近 30 天", "90D": "近 90 天", "ALL": "全历史"};
+  const boxes = Object.entries(off).filter(([, v]) => v && (v.totalOrder !== undefined || v.roi !== undefined))
+    .map(([k, v]) => {
+      const rows = [
+        ["ROI", pct(v.roi, 2)],
+        ["盈亏 (USDT)", signed(v.pnl, 2)],
+        ["胜率", pct(v.winRate) + ` <span class="flat">(${v.winOrders ?? "–"}/${v.totalOrder ?? "–"})</span>`],
+        ["最大回撤", pct(v.mdd, 2)],
+        ["夏普", v.sharpRatio ?? "–"],
+        ["跟单者总盈亏", int(v.copierPnl)],
+      ];
+      return `<div class="winbox"><h3>${LABEL[k] || k}</h3>` +
+        rows.map(([a, b]) => `<div class="row"><span>${a}</span><b>${b}</b></div>`).join("") + `</div>`;
+    }).join("");
+  $("official").innerHTML = boxes
+    ? `<div class="winstats">${boxes}</div>`
+    : `<div class="empty">官方绩效接口暂时取不到</div>`;
+}
+
+function renderStats(s) {
+  const stats = s.stats || {};
+  const labels = [["7D", "近 7 天"], ["30D", "近 30 天"], ["90D", "近 90 天"], ["ALL", "全历史"]];
+  const html = labels.filter(([k]) => stats[k]).map(([k, label]) => {
+    const x = stats[k];
+    const rows = [
+      ["平仓笔数", int(x.trades)],
+      ["已实现盈亏", signed(x.pnl, 2)],
+      ["胜率", pct(x.win_rate)],
+      ["平均 ROI", pct(x.avg_roi)],
+      ["平均持仓", dur(x.avg_hold_min)],
+      ["多 / 空", `${x.long} / ${x.short}`],
+      ["最大盈利", x.best ? `${esc(x.best.symbol)} ${num(x.best.pnl, 0)}` : "–"],
+      ["最大亏损", x.worst ? `${esc(x.worst.symbol)} ${num(x.worst.pnl, 0)}` : "–"],
+    ];
+    return `<div class="winbox"><h3>${label}</h3>` +
+      rows.map(([a, b]) => `<div class="row"><span>${a}</span><b>${b}</b></div>`).join("") + `</div>`;
+  }).join("");
+  $("stats").innerHTML = html || `<div class="empty">还没有历史数据</div>`;
+}
+
+function renderHistory(s) {
+  const rows = s.history || [];
+  if (!rows.length) { $("history").innerHTML = `<div class="empty">暂无平仓记录</div>`; return; }
+  const body = rows.map(h => `
+    <tr>
+      <td>${esc(h.opened_iso || "–")}</td>
+      <td>${esc(h.closed_iso || "–")}</td>
+      <td class="sym">${esc(h.symbol)}</td>
+      <td>${sideTag(h.side)}</td>
+      <td>${num(h.avg_cost, 6)}</td>
+      <td>${num(h.avg_close, 6)}</td>
+      <td>${num(h.qty, 4)}</td>
+      <td>${signed(h.pnl, 2)}</td>
+      <td>${pct(h.roi === null ? null : h.roi * 100)}</td>
+      <td class="hide">${h.leverage ? num(h.leverage, 0) + "x" : "–"}</td>
+      <td class="hide">${dur(h.duration_min)}</td>
+    </tr>`).join("");
+  $("history").innerHTML = `<table><thead><tr>
+      <th>开仓</th><th>平仓</th><th>币种</th><th>方向</th><th>开仓均价</th>
+      <th>平仓均价</th><th>数量</th><th>已实现</th><th>ROI</th>
+      <th class="hide">杠杆</th><th class="hide">持仓时长</th>
+    </tr></thead><tbody>${body}</tbody></table>`;
+}
+
+function renderBySymbol(s) {
+  const rows = s.by_symbol || [];
+  if (!rows.length) { $("bySymbol").innerHTML = `<div class="empty">暂无数据</div>`; return; }
+  const body = rows.map(r => `
+    <tr>
+      <td class="sym">${esc(r.symbol)}</td>
+      <td>${int(r.trades)}</td>
+      <td>${num(r.volume, 2)}</td>
+      <td>${signed(r.pnl, 2)}</td>
+      <td>${pct(r.win_rate)}</td>
+      <td class="hide">${r.last_closed ? new Date(r.last_closed).toLocaleString("zh-CN", {hour12: false}) : "–"}</td>
+    </tr>`).join("");
+  $("bySymbol").innerHTML = `<table><thead><tr>
+      <th>币种</th><th>平仓次数</th><th>累计量</th><th>累计盈亏</th>
+      <th>胜率</th><th class="hide">最近平仓</th>
+    </tr></thead><tbody>${body}</tbody></table>`;
+}
+
+function paint(s) {
+  $("title").textContent = s.title || "带单持仓监控";
+  $("updated").textContent = s.iso || "–";
+  $("trader").href = s.trader_url || "#";
+  $("trader").textContent = "带单 ID " + (s.portfolio_id || "–");
+
+  $("errors").innerHTML = (s.errors || []).map(e => `<div class="err">⚠ ${esc(e)}</div>`).join("");
+
+  const unset = !s.portfolio_id || s.portfolio_id === "PUT_PORTFOLIO_ID_HERE";
+  $("banner").innerHTML = unset
+    ? `<div class="warn">还没配置带单员 ID：在 <code>config.json</code> 里填 <code>portfolio_id</code> 后重启服务。</div>`
+    : s.starting ? `<div class="banner">正在首轮同步，稍等几秒…</div>`
+    : `<div class="banner">仓位口径：<b>由逐笔成交反推</b>（取该币种上一轮平仓之后的成交净额）。币安「当前持仓」网页接口匿名访问恒返回空数组，不可用。</div>`;
+
+  const t = s.trade_sync || {}, h = s.history_sync || {};
+  $("syncinfo").textContent = [
+    t.ts ? `成交同步 ${new Date(t.ts * 1000).toLocaleString("zh-CN", {hour12: false})}（本轮 +${t.added} 笔，${t.pages} 页，库内 ${s.fill_total || 0} 笔）` : "",
+    h.ts ? `周期同步 新增 ${h.added} 条｜已存 ${s.closed_total || 0} 条平仓周期` : "",
+  ].filter(Boolean).join(" · ");
+
+  const dq = s.data_quality || {};
+  $("quality").innerHTML = dq.checked
+    ? `数据校验：抽查 ${dq.checked} 个已平仓周期，最差成交缺口 ${pct(dq.worst_gap_pct, 2)}`
+      + ((dq.notes || []).length ? `　⚠ ${dq.notes.map(esc).join("；")}` : "　✅ 无异常")
+    : "";
+  renderCards(s); renderPositions(s); renderCycles(s); renderFills(s);
+  renderOfficial(s); renderStats(s); renderHistory(s); renderBySymbol(s);
+}
+
+async function tick() {
+  try {
+    const res = await fetch("/api/state", {cache: "no-store"});
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    const s = await res.json();
+    paint(s);
+    const age = Math.max(0, Math.round(Date.now() / 1000 - (s.ts || 0)));
+    $("age").textContent = age < 90 ? age + " 秒前" : Math.round(age / 60) + " 分钟前";
+    const stale = age > (s.poll_interval || 60) * 2.5;
+    $("dot").className = "dot" + (age > (s.poll_interval || 60) * 6 ? " dead" : stale ? " stale" : "");
+  } catch (e) {
+    $("dot").className = "dot dead";
+    $("errors").innerHTML = `<div class="err">面板取数失败: ${esc(e.message)}</div>`;
+  }
+}
+
+tick();
+setInterval(tick, 5000);
+</script>
+</body>
+</html>

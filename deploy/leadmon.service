@@ -1,0 +1,30 @@
+[Unit]
+Description=Binance copy-trading lead trader position monitor
+Documentation=https://github.com/kvzjj/leadmon
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=leadmon
+Group=leadmon
+WorkingDirectory=/opt/leadmon
+Environment=LEADMON_LOG=INFO
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/usr/bin/python3 -m leadmon.main /opt/leadmon/config.json
+Restart=always
+RestartSec=5
+TimeoutStopSec=10
+
+# 只监听 127.0.0.1，外面走 SSH 端口转发
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+ReadWritePaths=/opt/leadmon/data
+
+[Install]
+WantedBy=multi-user.target

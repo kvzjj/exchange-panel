@@ -1,0 +1,31 @@
+{
+  "portfolio_id": "5075281354358777856",
+  "panel_title": "熬鹰资本 · 带单持仓监控",
+  "poll_interval_sec": 60,
+  "history_interval_sec": 300,
+  "history_page_size": 100,
+  "fill_page_size": 200,
+  "fill_backfill_days": 7,
+  "fill_boundary_grace_sec": 60,
+  "event_bucket_sec": 2,
+  "history_limit": 20,
+  "fills_limit": 40,
+  "symbol_limit": 10,
+  "db_path": "data/leadmon.db",
+  "state_path": "data/state.json",
+  "serve_panel": true,
+  "bind": "127.0.0.1",
+  "port": 8791,
+  "push": {
+    "enabled": true,
+    "env_file": ".secrets/ntfy.env",
+    "url": "https://gn.kvzjj.top:9445",
+    "panel_url": "https://gn.kvzjj.top:9446",
+    "startup_grace_sec": 300,
+    "max_attempts": 5,
+    "batch": 8,
+    "timeout_sec": 10
+  },
+  "fill_sync_budget_sec": 45,
+  "fill_retain_days": 90
+}
